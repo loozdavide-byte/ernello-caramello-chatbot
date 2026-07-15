@@ -1,19 +1,41 @@
 import streamlit as st
 from groq import Groq
 import base64
+import os
 
 # Configurazione Pagina
 st.set_page_config(page_title="Ernello", page_icon="💬", layout="centered")
 
-# --- CSS GLOBALE: Sfondo WhatsApp ---
-st.markdown("""
-<style>
-    .stApp { background-color: #efeae2; } /* Colore sfondo esatto di WhatsApp */
-    /* Rimuoviamo il padding predefinito per renderlo più compatto */
-    .block-container { padding-top: 2rem; padding-bottom: 2rem; }
-</style>
-""", unsafe_allow_html=True)
+# --- MAGIA PER CARICARE LA TUA FOTO COME SFONDO SENZA BORDI ---
+def carica_sfondo(nome_file):
+    if os.path.exists(nome_file):
+        with open(nome_file, "rb") as f:
+            dati_immagine = f.read()
+        b64_immagine = base64.b64encode(dati_immagine).decode()
+        
+        st.markdown(f"""
+        <style>
+            .stApp {{
+                background-image: url("data:image/jpeg;base64,{b64_immagine}");
+                background-size: cover;          /* Espande la foto senza bordi vuoti */
+                background-position: center;     /* Centra l'immagine */
+                background-repeat: no-repeat;
+                background-attachment: fixed;    /* Lo sfondo resta fermo se scorri la chat */
+            }}
+            .block-container {{ 
+                padding-top: 2rem; 
+                padding-bottom: 2rem;
+                background-color: transparent !important;
+            }}
+        </style>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("<style>.stApp { background-color: #efeae2; }</style>", unsafe_allow_html=True)
 
+# Richiama la funzione con il nome esatto della tua foto
+carica_sfondo("sfondo.jpg")
+
+# Configurazione API
 CHIAVE_API = st.secrets["GROQ_API_KEY"]
 client = Groq(api_key=CHIAVE_API)
 sistema_ernello = [{"role": "system", "content": "Tu sei Ernello. Rispondi in italiano in modo amichevole, conciso come su WhatsApp."}]
@@ -37,11 +59,10 @@ with st.sidebar:
 
 messages = st.session_state.all_chats[st.session_state.active_chat]
 
-# --- IL NUOVO MOTORE IN PURO HTML ---
+# --- IL MOTORE HTML DELLA CHAT ---
 for m in messages:
     if m["type"] == "text":
         if m["role"] == "user":
-            # TUO MESSAGGIO: Spinto a destra (flex-end), verde WhatsApp, coda in alto a destra
             st.markdown(f"""
             <div style='display: flex; justify-content: flex-end; margin-bottom: 10px;'>
                 <div style='background-color: #dcf8c6; color: black; padding: 10px 15px; border-radius: 15px 0px 15px 15px; max-width: 75%; box-shadow: 1px 1px 2px rgba(0,0,0,0.1); font-family: Arial, sans-serif; font-size: 15px;'>
@@ -50,7 +71,6 @@ for m in messages:
             </div>
             """, unsafe_allow_html=True)
         else:
-            # MESSAGGIO ERNELLO: Spinto a sinistra (flex-start), bianco, coda in alto a sinistra
             st.markdown(f"""
             <div style='display: flex; justify-content: flex-start; margin-bottom: 10px;'>
                 <div style='background-color: #ffffff; color: black; padding: 10px 15px; border-radius: 0px 15px 15px 15px; max-width: 75%; box-shadow: 1px 1px 2px rgba(0,0,0,0.1); font-family: Arial, sans-serif; font-size: 15px;'>
@@ -59,7 +79,6 @@ for m in messages:
             </div>
             """, unsafe_allow_html=True)
     else:
-        # Se è un'immagine, la mostriamo normalmente
         st.image(m["content"])
 
 # --- INVIO NUOVO MESSAGGIO ---
@@ -67,10 +86,8 @@ if prompt := st.chat_input("Scrivi a Ernello..."):
     base64_foto = None
     if foto_utente: base64_foto = base64.b64encode(foto_utente.read()).decode("utf-8")
     
-    # Salviamo il tuo messaggio
     st.session_state.all_chats[st.session_state.active_chat].append({"role": "user", "type": "text", "content": prompt})
     
-    # Mostriamo subito il tuo messaggio in verde a destra
     st.markdown(f"""
     <div style='display: flex; justify-content: flex-end; margin-bottom: 10px;'>
         <div style='background-color: #dcf8c6; color: black; padding: 10px 15px; border-radius: 15px 0px 15px 15px; max-width: 75%; box-shadow: 1px 1px 2px rgba(0,0,0,0.1); font-family: Arial, sans-serif; font-size: 15px;'>
@@ -81,7 +98,6 @@ if prompt := st.chat_input("Scrivi a Ernello..."):
 
     api_messages = sistema_ernello + [{"role": m["role"], "content": m["content"]} for m in messages if m["type"] == "text"]
     
-    # Generazione e stampa della risposta
     try:
         if base64_foto:
             risposta = client.chat.completions.create(model="llama-3.2-11b-vision-preview", 
@@ -91,7 +107,6 @@ if prompt := st.chat_input("Scrivi a Ernello..."):
         
         testo = risposta.choices[0].message.content
         
-        # Mostriamo la risposta di Ernello in bianco a sinistra
         st.markdown(f"""
         <div style='display: flex; justify-content: flex-start; margin-bottom: 10px;'>
             <div style='background-color: #ffffff; color: black; padding: 10px 15px; border-radius: 0px 15px 15px 15px; max-width: 75%; box-shadow: 1px 1px 2px rgba(0,0,0,0.1); font-family: Arial, sans-serif; font-size: 15px;'>
