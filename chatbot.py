@@ -1,119 +1,149 @@
 import streamlit as st
 from groq import Groq
 import urllib.parse
-import base64  # Necessario per convertire la foto e farla vedere all'IA
+import base64
 
-# Configurazione della pagina web
+# 1. Configurazione iniziale della pagina web
 st.set_page_config(page_title="Il mio AI Super Bot", page_icon="🤖", layout="centered")
-st.title("🤖 Il mio AI Super Bot")
+st.title("super ai bot di ernello caramello")
 st.caption("Creato da il Merluzzo 🚀")
-st.write("Chiedimi di disegnare qualcosa, carica una foto o facciamo due chiacchiere!")
+st.write("Benvenuto! Chiedimi di disegnare, analizzare una foto o parliamo del più e del meno.")
 
-# Recupera la chiave dalle impostazioni segrete (cassaforte) di Streamlit
+# 2. Connessione sicura alla cassaforte delle chiavi API
 CHIAVE_API = st.secrets["GROQ_API_KEY"]
-
-# Inizializziamo il client Groq
 client = Groq(api_key=CHIAVE_API)
 
-# Crea la memoria della chat se non esiste
+# 3. Inizializzazione della memoria del Bot (se è vuota)
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "last_processed_file_id" not in st.session_state:
+    st.session_state.last_processed_file_id = None
 
-# Mostra i messaggi precedenti nella cronologia
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        if message.get("is_image"):
-            st.image(message["content"], caption="Immagine")
-        else:
-            st.write(message["content"])
-
-# Funzione tecnica per tradurre l'immagine in un formato leggibile dall'IA
+# 4. Funzione tecnica per convertire le immagini per l'I.A.
 def converti_in_base64(file_caricato):
     return base64.b64encode(file_caricato.read()).decode("utf-8")
 
-# --- NUOVA BARRA LATERALE PER CARICARE LE FOTO ---
+# 5. Costruzione della barra laterale (Sidebar)
 with st.sidebar:
-    st.header("📸 Invia una Foto")
-    foto_utente = st.file_uploader("Carica un'immagine dal tuo dispositivo", type=["png", "jpg", "jpeg"])
-    if foto_utente:
-        st.image(foto_utente, caption="Foto pronta per essere analizzata!")
-
-# Input di testo dell'utente
-if prompt := st.chat_input("Scrivi qui... (es. 'Cosa ne pensi di questa foto?' o 'Disegna un drago')"):
+    st.header("⚙️ Pannello di Controllo")
     
-    # Mostra il messaggio di testo dell'utente
-    with st.chat_message("user"):
-        st.write(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    # Tasto magico per cancellare la memoria del bot
+    if st.button("🗑️ Cancella Cronologia Chat", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.last_processed_file_id = None
+        st.rerun()
+        
+    st.write("---")
+    st.header("📸 Invia una Foto")
+    foto_utente = st.file_uploader("Trascina qui un'immagine", type=["png", "jpg", "jpeg"])
+    if foto_utente:
+        st.image(foto_utente, caption="Foto pronta in memoria!")
 
-    # Se c'è una foto caricata, la salviamo e la mostriamo nella cronologia della chat
+# 6. Mostra la cronologia passata sullo schermo con il look corretto
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        if message["type"] == "text":
+            st.write(message["content"])
+        elif message["type"] == "generated_image":
+            st.image(message["content"], caption="🎨 Immagine Generata")
+        elif message["type"] == "uploaded_image":
+            st.image(message["content"], caption="📸 Foto Caricata")
+
+# 7. Gestione dell'input dell'utente (Quando invia un messaggio)
+if prompt := st.chat_input("Scrivi qui un messaggio o un comando (es. 'disegna un drago')..."):
+    
+    # Convertiamo la foto se presente
     base64_foto = None
     if foto_utente:
         base64_foto = converti_in_base64(foto_utente)
-        with st.chat_message("user"):
-            st.image(foto_utente, caption="Foto inviata")
-        st.session_state.messages.append({"role": "user", "content": foto_utente.getvalue(), "is_image": True})
+    
+    # A. COSTRUIAMO LA CRONOLOGIA DA MANDARE A GROQ (Così l'I.A. ha memoria!)
+    api_messages = []
+    for m in st.session_state.messages:
+        if m["type"] == "text":
+            api_messages.append({"role": m["role"], "content": m["content"]})
+        else:
+            # Sostituto testuale per non far crashare i modelli con vecchie immagini storiche
+            etichetta = "🎨 [Immagine Generata]" if m["type"] == "generated_image" else "📸 [Foto Caricata]"
+            api_messages.append({"role": m["role"], "content": etichetta})
 
-    # Parole chiave per capire se l'utente vuole GENERARE un disegno da zero
-    parole_immagine = ["disegna", "crea immagine", "creami un'immagine", "genera immagine", "foto di", "immagine di", "/immagine"]
-    parole_video = ["crea video", "genera video", "fai un video", "creami un video", "video di"]
+    # B. MOSTRIAMO I NUOVI INPUT SULLO SCHERMO E IN CODA ALLA MEMORIA
+    if foto_utente:
+        file_id = f"{foto_utente.name}_{foto_utente.size}"
+        # Mostra la foto nella chat solo se è una NUOVA foto appena caricata
+        if st.session_state.last_processed_file_id != file_id:
+            st.session_state.messages.append({"role": "user", "type": "uploaded_image", "content": foto_utente.getvalue()})
+            st.session_state.last_processed_file_id = file_id
+            with st.chat_message("user"):
+                st.image(foto_utente, caption="📸 Foto Caricata")
+                
+    # Mostriamo il testo dell'utente
+    st.session_state.messages.append({"role": "user", "type": "text", "content": prompt})
+    with st.chat_message("user"):
+        st.write(prompt)
 
+    # C. PREPARIAMO IL PACCHETTO DATI FINALE DA SPEDIRE AL CERVELLO DELL'I.A.
+    if base64_foto is not None:
+        api_messages.append({
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_foto}"}}
+            ]
+        })
+    else:
+        api_messages.append({"role": "user", "content": prompt})
+
+    # D. ELABORAZIONE DELLA RISPOSTA DELL'ASSISTENTE
     with st.chat_message("assistant"):
-        
-        # CASO 1: L'utente chiede un VIDEO
+        parole_immagine = ["disegna", "crea immagine", "creami un'immagine", "genera immagine", "foto di", "immagine di", "/immagine"]
+        parole_video = ["crea video", "genera video", "fai un video", "creami un video", "video di"]
+
+        # CASO 1: Richiesta Video
         if any(parola in prompt.lower() for parola in parole_video):
-            risposta_video = "🎥 **Generatore Video:** Per creare video reali serve una configurazione a pagamento con chiavi Replicate.com!"
+            risposta_video = "🎥 **Generatore Video:** Per creare video reali serve una configurazione avanzata a pagamento con Replicate.com!"
             st.write(risposta_video)
-            st.session_state.messages.append({"role": "assistant", "content": risposta_video})
+            st.session_state.messages.append({"role": "assistant", "type": "text", "content": risposta_video})
             
-        # CASO 2: L'utente vuole GENERARE un'immagine (Pollinations)
+        # CASO 2: Generazione Immagine (Disegno da zero)
         elif any(parola in prompt.lower() for parola in parole_immagine):
-            st.write("🎨 Sto creando la tua immagine, un attimo di pazienza...")
+            st.write("🎨 Sto dipingendo la tua idea, un attimo...")
             prompt_pulito = prompt
             for parola in parole_immagine:
                 prompt_pulito = prompt_pulito.lower().replace(parola, "").strip()
             if not prompt_pulito:
-                prompt_pulito = "un disegno astratto"
+                prompt_pulito = "un paesaggio incredibile"
+            
             prompt_codificato = urllib.parse.quote(prompt_pulito)
             url_immagine = f"https://image.pollinations.ai/prompt/{prompt_codificato}?width=1024&height=1024&nologo=true"
-            st.image(url_immagine, caption=f"Risultato per: {prompt_pulito}")
-            st.session_state.messages.append({"role": "assistant", "content": url_immagine, "is_image": True})
             
-        # CASO 3: L'utente ha CARICATO una FOTO (Attiviamo il modello Vision!)
+            st.image(url_immagine, caption=f"Ecco: {prompt_pulito}")
+            st.session_state.messages.append({"role": "assistant", "type": "generated_image", "content": url_immagine})
+            
+        # CASO 3: Analisi di una foto caricata (Visione Artificiale)
         elif base64_foto is not None:
-            st.write("👀 Sto esaminando l'immagine che mi hai caricato...")
+            st.write("👀 Sto guardando la foto...")
             try:
                 risposta = client.chat.completions.create(
-                    model="llama-3.2-11b-vision-preview", # <-- Modello speciale con gli occhi!
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {"url": f"data:image/jpeg;base64,{base64_foto}"}
-                                }
-                            ]
-                        }
-                    ]
+                    model="llama-3.2-11b-vision-preview",
+                    messages=api_messages
                 )
                 testo_risposta = risposta.choices[0].message.content
                 st.write(testo_risposta)
-                st.session_state.messages.append({"role": "assistant", "content": testo_risposta})
+                st.session_state.messages.append({"role": "assistant", "type": "text", "content": testo_risposta})
             except Exception as errore:
-                st.error(f"Errore durante l'analisi della foto: {errore}")
+                st.error(f"Errore Visione: {errore}")
 
-        # CASO 4: Chat normale a parole (Modello Llama 3.3 Super Intelligente!)
+        # CASO 4: Chat normale testuale (Modello Gigante Ultra-Intelligente)
         else:
             st.write("Pensando...")
             try:
                 risposta = client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model="llama-3.3-70b-specdec", # <-- Il super cervello ultra colto!
+                    model="llama-3.3-70b-specdec",
+                    messages=api_messages
                 )
                 testo_risposta = risposta.choices[0].message.content
                 st.write(testo_risposta)
-                st.session_state.messages.append({"role": "assistant", "content": testo_risposta})
+                st.session_state.messages.append({"role": "assistant", "type": "text", "content": testo_risposta})
             except Exception as errore:
-                st.error(f"Errore di connessione: {errore}")
+                st.error(f"Errore Connessione: {errore}")
