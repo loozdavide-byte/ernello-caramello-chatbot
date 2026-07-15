@@ -3,102 +3,99 @@ from groq import Groq
 from pptx import Presentation
 import io
 
-# --- 1. CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Ernello Gemini Style", page_icon="⚡", layout="wide")
+# --- 1. CONFIGURAZIONE ---
+st.set_page_config(page_title="Ernello", page_icon="⚡", layout="wide")
 
-# --- CSS PER IL LOOK "GEMINI" ---
+# --- CSS "GEMINI CLONE" ---
 st.markdown("""
 <style>
-    /* Sfondo globale scuro */
-    .stApp { background-color: #0d0d0d; color: #e0e0e0; }
+    /* Sfondo Gemini */
+    [data-testid="stAppViewContainer"] { background-color: #131314; }
+    [data-testid="stSidebar"] { background-color: #0b0b0b; border-right: 1px solid #222; }
     
-    /* Sidebar scura */
-    [data-testid="stSidebar"] { background-color: #050505; border-right: 1px solid #222; }
+    /* Sidebar Title & Logo */
+    .sidebar-title { color: #ffffff; font-size: 20px; font-weight: 600; padding: 10px; }
     
-    /* Messaggi chat puliti */
+    /* Barra di input personalizzata */
+    .stChatInput { background-color: #1f1f1f; border-radius: 24px; }
+    
+    /* Messaggi */
     .stChatMessage { background-color: transparent !important; }
-    .stChatMessageContent { color: #e0e0e0; font-family: sans-serif; }
     
-    /* Barra input arrotondata stile Gemini */
-    .input-container {
-        background-color: #1f1f1f;
-        border-radius: 30px;
-        padding: 5px 20px;
-        display: flex;
-        align-items: center;
-        border: 1px solid #333;
-    }
-    .block-container { padding-bottom: 5rem; }
+    /* Nascondi header standard per pulizia */
+    header { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. FUNZIONI ---
-def crea_presentazione(titolo, contenuto):
-    prs = Presentation()
-    slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = titolo
-    slide.placeholders[1].text = contenuto
-    bio = io.BytesIO()
-    prs.save(bio)
-    return bio.getvalue()
-
+# --- 2. LOGICA E FUNZIONI ---
+# (Mantieni la logica precedente per la gestione Groq e PPTX)
 try:
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 except:
-    st.error("⚠️ Configura GROQ_API_KEY nei Secrets!")
+    st.error("⚠️ Chiave API mancante!")
     st.stop()
 
-# --- 3. BARRA LATERALE ---
+# --- 3. SIDEBAR (Design Gemini) ---
 with st.sidebar:
-    st.title("⚙️ Controlli")
-    modello = st.selectbox("Modello:", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"])
-    system_prompt = st.text_area("Stato d'animo:", "Tu sei Ernello, assistente preciso e professionale.")
+    st.markdown('<div class="sidebar-title">⚡ Ernello</div>', unsafe_allow_html=True)
+    
+    if st.button("➕ Nuova chat", use_container_width=True):
+        st.session_state.active_chat = "Chat 1"
+        st.rerun()
+    
+    st.write("---")
+    st.subheader("Recenti")
+    # Qui potresti ciclare le tue chat salvate
+    st.text("Chat 1")
+    st.text("Progetto Scooter")
+    st.text("Coding Python")
     
     st.divider()
-    if "all_chats" not in st.session_state: st.session_state.all_chats = {"Chat 1": []}
-    st.session_state.active_chat = st.radio("Le tue chat:", list(st.session_state.all_chats.keys()))
-    if st.button("➕ Nuova Chat"):
-        nome = f"Chat {len(st.session_state.all_chats) + 1}"
-        st.session_state.all_chats[nome] = []
-        st.rerun()
+    modello = st.selectbox("Motore:", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"])
 
-# --- 4. AREA CHAT ---
-messages = st.session_state.all_chats[st.session_state.active_chat]
+# --- 4. MAIN CHAT (Look Gemini) ---
+if "all_chats" not in st.session_state: st.session_state.all_chats = {"Chat 1": []}
+
+messages = st.session_state.all_chats["Chat 1"]
+
 for m in messages:
-    with st.chat_message(m["role"], avatar=None):
+    with st.chat_message(m["role"], avatar="⚡" if m["role"] == "assistant" else None):
         st.markdown(m["content"])
 
-# --- 5. INPUT BAR "GEMINI STYLE" ---
-# Creiamo un contenitore fisso in basso
-container = st.container()
-with container:
-    # Divisori per layout: [Mic] [Input] [Send]
-    col1, col2, col3 = st.columns([0.1, 0.8, 0.1])
-    
-    with col1:
-        # Il microfono è un tasto che attiva l'audio_input (nascosto o compatto)
-        audio_trigger = st.button("🎙️")
-    
-    with col2:
-        testo_input = st.text_input("Scrivi...", label_visibility="collapsed", key="input_text")
-    
-    with col3:
-        send_trigger = st.button("⬆️")
+# --- 5. BARRA INPUT GEMINI STYLE ---
+# Usiamo i contenitori per mimare la barra di Gemini
+col_plus, col_input, col_mic, col_send = st.columns([0.05, 0.8, 0.05, 0.05])
+
+with col_plus:
+    if st.button("➕"):
+        st.file_uploader("Upload", label_visibility="collapsed")
+
+with col_input:
+    testo = st.text_input("Scrivi a Ernello...", label_visibility="collapsed", key="input_gemini")
+
+with col_mic:
+    mic = st.button("🎙️")
+
+with col_send:
+    send = st.button("⬆️")
 
 # Logica di invio
-final_text = None
-if audio_trigger:
-    # Qui dovresti gestire l'audio, per semplicità nel layout "Gemini" 
-    # usiamo il widget nativo che appare solo se necessario
-    audio_val = st.audio_input("Parla...")
-    if audio_val:
-        # Trascrizione...
-        pass
-
-if send_trigger and testo_input:
-    final_text = testo_input
-
-if final_text:
-    # (Logica di append e risposta identica a prima)
-    st.session_state.all_chats[st.session_state.active_chat].append({"role": "user", "content": final_text})
-    st.rerun()
+if send and testo:
+    st.session_state.all_chats["Chat 1"].append({"role": "user", "content": testo})
+    with st.chat_message("user"): st.markdown(testo)
+    
+    # Risposta AI (semplificata)
+    with st.chat_message("assistant", avatar="⚡"):
+        placeholder = st.empty()
+        stream = client.chat.completions.create(
+            model=modello,
+            messages=[{"role": "user", "content": testo}],
+            stream=True
+        )
+        full_response = ""
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+                placeholder.markdown(full_response + "▌")
+        placeholder.markdown(full_response)
+        st.session_state.all_chats["Chat 1"].append({"role": "assistant", "content": full_response})
