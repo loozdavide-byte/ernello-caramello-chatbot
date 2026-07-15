@@ -3,118 +3,167 @@ from groq import Groq
 import base64
 import os
 
-# Configurazione Pagina
-st.set_page_config(page_title="Ernello", page_icon="💬", layout="centered")
+# --- 1. CONFIGURAZIONE PAGINA E DESIGN ---
+st.set_page_config(page_title="Ernello PRO", page_icon="⚡", layout="wide")
 
-# --- MAGIA PER CARICARE LA TUA FOTO COME SFONDO SENZA BORDI ---
-def carica_sfondo(nome_file):
+def applica_stile_e_sfondo(nome_file):
+    css_base = """
+    <style>
+        /* Rende i messaggi leggermente trasparenti per far vedere lo sfondo, 
+           ma mantiene la leggibilità perfetta per il codice e il testo */
+        .stChatMessage {
+            background-color: rgba(255, 255, 255, 0.90) !important;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+        /* Contenitore principale trasparente */
+        .block-container { background-color: transparent !important; padding-top: 2rem; }
+    </style>
+    """
     if os.path.exists(nome_file):
         with open(nome_file, "rb") as f:
-            dati_immagine = f.read()
-        b64_immagine = base64.b64encode(dati_immagine).decode()
-        
-        st.markdown(f"""
+            b64_immagine = base64.b64encode(f.read()).decode()
+        css_sfondo = f"""
         <style>
             .stApp {{
                 background-image: url("data:image/jpeg;base64,{b64_immagine}");
-                background-size: cover;          /* Espande la foto senza bordi vuoti */
-                background-position: center;     /* Centra l'immagine */
-                background-repeat: no-repeat;
-                background-attachment: fixed;    /* Lo sfondo resta fermo se scorri la chat */
-            }}
-            .block-container {{ 
-                padding-top: 2rem; 
-                padding-bottom: 2rem;
-                background-color: transparent !important;
+                background-size: cover;
+                background-position: center;
+                background-attachment: fixed;
             }}
         </style>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(css_base + css_sfondo, unsafe_allow_html=True)
     else:
-        st.markdown("<style>.stApp { background-color: #efeae2; }</style>", unsafe_allow_html=True)
+        st.markdown(css_base + "<style>.stApp { background-color: #f0f2f6; }</style>", unsafe_allow_html=True)
 
-# Richiama la funzione con il nome esatto della tua foto
-carica_sfondo("sfondo.jpg")
+applica_stile_e_sfondo("sfondo.jpg")
 
-# Configurazione API
-CHIAVE_API = st.secrets["GROQ_API_KEY"]
-client = Groq(api_key=CHIAVE_API)
-sistema_ernello = [{"role": "system", "content": "Tu sei Ernello. Rispondi in italiano in modo amichevole, conciso come su WhatsApp."}]
+# --- 2. CONFIGURAZIONE API GROQ ---
+try:
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+except:
+    st.error("⚠️ Manca la chiave API nei Secrets!")
+    st.stop()
 
-# Inizializzazione Chat
-if "all_chats" not in st.session_state: st.session_state.all_chats = {"Chat 1": []}
-if "active_chat" not in st.session_state: st.session_state.active_chat = "Chat 1"
-
-# Sidebar
+# --- 3. BARRA LATERALE: I SUPERPOTERI ---
 with st.sidebar:
-    st.title("💬 Chat di Ernello")
-    chat_scelta = st.selectbox("Seleziona:", list(st.session_state.all_chats.keys()))
+    st.title("⚙️ Pannello di Controllo")
+    
+    # Scelta del cervello
+    st.subheader("🧠 Scegli il Modello")
+    modello_scelto = st.selectbox(
+        "Motore AI:",
+        ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+        help="70b = Più intelligente. 8b = Più veloce. Mixtral = Ottimo per codice."
+    )
+    
+    # Personalità programmabile
+    st.subheader("🎭 Personalità")
+    system_prompt = st.text_area("Come deve comportarsi Ernello?", "Tu sei Ernello, un assistente AI super intelligente, esperto di informatica, motori e matematica. Rispondi in italiano, in modo amichevole e preciso.")
+    
+    st.divider()
+    
+    # Gestione chat multipla
+    st.subheader("💬 Le tue Chat")
+    if "all_chats" not in st.session_state: st.session_state.all_chats = {"Chat 1": []}
+    if "active_chat" not in st.session_state: st.session_state.active_chat = "Chat 1"
+    
+    chat_scelta = st.radio("Seleziona:", list(st.session_state.all_chats.keys()))
     st.session_state.active_chat = chat_scelta
-    if st.button("➕ Nuova Chat"):
-        nome = f"Chat {len(st.session_state.all_chats) + 1}"
-        st.session_state.all_chats[nome] = []
-        st.session_state.active_chat = nome
-        st.rerun()
-    st.write("---")
-    foto_utente = st.file_uploader("📸 Invia foto", type=["png", "jpg", "jpeg"])
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("➕ Nuova"):
+            nome = f"Chat {len(st.session_state.all_chats) + 1}"
+            st.session_state.all_chats[nome] = []
+            st.session_state.active_chat = nome
+            st.rerun()
+    with col2:
+        if st.button("🗑️ Pulisci"):
+            st.session_state.all_chats[st.session_state.active_chat] = []
+            st.rerun()
+            
+    st.divider()
+    
+    # Input Multimediali
+    st.subheader("📎 Invia File")
+    foto_utente = st.file_uploader("📸 Analizza una foto", type=["png", "jpg", "jpeg"])
+    audio_utente = st.audio_input("🎙️ Parlami a voce")
 
+# --- 4. MOTORE DELLA CHAT PRINCIPALE ---
 messages = st.session_state.all_chats[st.session_state.active_chat]
 
-# --- IL MOTORE HTML DELLA CHAT ---
+# Mostra lo storico
 for m in messages:
-    if m["type"] == "text":
-        if m["role"] == "user":
-            st.markdown(f"""
-            <div style='display: flex; justify-content: flex-end; margin-bottom: 10px;'>
-                <div style='background-color: #dcf8c6; color: black; padding: 10px 15px; border-radius: 15px 0px 15px 15px; max-width: 75%; box-shadow: 1px 1px 2px rgba(0,0,0,0.1); font-family: Arial, sans-serif; font-size: 15px;'>
-                    {m["content"]}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div style='display: flex; justify-content: flex-start; margin-bottom: 10px;'>
-                <div style='background-color: #ffffff; color: black; padding: 10px 15px; border-radius: 0px 15px 15px 15px; max-width: 75%; box-shadow: 1px 1px 2px rgba(0,0,0,0.1); font-family: Arial, sans-serif; font-size: 15px;'>
-                    {m["content"]}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.image(m["content"])
+    with st.chat_message(m["role"]):
+        if m["type"] == "text":
+            st.markdown(m["content"])
+        elif m["type"] == "image":
+            st.image(m["content"])
 
-# --- INVIO NUOVO MESSAGGIO ---
-if prompt := st.chat_input("Scrivi a Ernello..."):
-    base64_foto = None
-    if foto_utente: base64_foto = base64.b64encode(foto_utente.read()).decode("utf-8")
-    
-    st.session_state.all_chats[st.session_state.active_chat].append({"role": "user", "type": "text", "content": prompt})
-    
-    st.markdown(f"""
-    <div style='display: flex; justify-content: flex-end; margin-bottom: 10px;'>
-        <div style='background-color: #dcf8c6; color: black; padding: 10px 15px; border-radius: 15px 0px 15px 15px; max-width: 75%; box-shadow: 1px 1px 2px rgba(0,0,0,0.1); font-family: Arial, sans-serif; font-size: 15px;'>
-            {prompt}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+# --- 5. LOGICA DI RICEZIONE MESSAGGI (Testo o Voce) ---
+testo_inviato = st.chat_input("Scrivi un messaggio...")
 
-    api_messages = sistema_ernello + [{"role": m["role"], "content": m["content"]} for m in messages if m["type"] == "text"]
-    
-    try:
-        if base64_foto:
-            risposta = client.chat.completions.create(model="llama-3.2-11b-vision-preview", 
-                messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_foto}"}}]}])
-        else:
-            risposta = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=api_messages)
+# Se l'utente usa il microfono, trascriviamo l'audio con Whisper!
+if audio_utente:
+    with st.spinner("Sto ascoltando..."):
+        trascrizione = client.audio.transcriptions.create(
+            file=("audio.wav", audio_utente.read()),
+            model="whisper-large-v3",
+            language="it"
+        )
+        testo_inviato = trascrizione.text
+
+# Se c'è un messaggio (scritto o vocale)
+if testo_inviato:
+    # 1. Salva e mostra il messaggio dell'utente
+    st.session_state.all_chats[st.session_state.active_chat].append({"role": "user", "type": "text", "content": testo_inviato})
+    with st.chat_message("user"):
+        st.markdown(testo_inviato)
+
+    # 2. Prepara la memoria per l'API
+    api_messages = [{"role": "system", "content": system_prompt}]
+    for m in st.session_state.all_chats[st.session_state.active_chat]:
+        if m["type"] == "text":
+            api_messages.append({"role": m["role"], "content": m["content"]})
+            
+    # 3. Genera la risposta
+    with st.chat_message("assistant"):
+        placeholder_risposta = st.empty()
         
-        testo = risposta.choices[0].message.content
-        
-        st.markdown(f"""
-        <div style='display: flex; justify-content: flex-start; margin-bottom: 10px;'>
-            <div style='background-color: #ffffff; color: black; padding: 10px 15px; border-radius: 0px 15px 15px 15px; max-width: 75%; box-shadow: 1px 1px 2px rgba(0,0,0,0.1); font-family: Arial, sans-serif; font-size: 15px;'>
-                {testo}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.session_state.all_chats[st.session_state.active_chat].append({"role": "assistant", "type": "text", "content": testo})
-    except Exception as e:
-        st.error(f"Errore di connessione: {e}")
+        try:
+            # Se c'è una foto, forziamo il modello Vision
+            if foto_utente:
+                base64_foto = base64.b64encode(foto_utente.read()).decode("utf-8")
+                risposta = client.chat.completions.create(
+                    model="llama-3.2-11b-vision-preview", 
+                    messages=[{"role": "user", "content": [
+                        {"type": "text", "text": testo_inviato}, 
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_foto}"}}
+                    ]}]
+                )
+                testo_finale = risposta.choices[0].message.content
+                placeholder_risposta.markdown(testo_finale)
+                
+            # Altrimenti usa il modello scelto dalla tendina in streaming (effetto macchina da scrivere)
+            else:
+                stream = client.chat.completions.create(
+                    model=modello_scelto,
+                    messages=api_messages,
+                    stream=True # Rende la risposta immediata e fluida
+                )
+                testo_finale = ""
+                for chunk in stream:
+                    if chunk.choices[0].delta.content is not None:
+                        testo_finale += chunk.choices[0].delta.content
+                        placeholder_risposta.markdown(testo_finale + "▌")
+                placeholder_risposta.markdown(testo_finale) # Toglie il cursore alla fine
+
+            # Salva la risposta nella memoria
+            st.session_state.all_chats[st.session_state.active_chat].append({"role": "assistant", "type": "text", "content": testo_finale})
+            
+        except Exception as e:
+            st.error(f"Errore di sistema: {e}")
