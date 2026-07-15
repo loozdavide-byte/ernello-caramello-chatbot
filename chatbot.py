@@ -77,7 +77,7 @@ if prompt := st.chat_input("Scrivi qui... (es. 'disegna un drago rosso' oppure '
             try:
                 risposta = client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
-                    model="llama-3.1-8b-instant",
+                    model="llama-3.3-70b-specdec",
                 )
                 testo_risposta = risposta.choices[0].message.content
                 st.write(testo_risposta)
