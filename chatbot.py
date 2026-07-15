@@ -27,7 +27,6 @@ def applica_stile_e_sfondo(nome_file):
     padding-top: 2rem; 
 }}
 .stApp {{
-    background-image: url("data:image/jpeg;base64,{b64_immagine}");
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
