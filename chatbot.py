@@ -131,7 +131,6 @@ if prompt := st.chat_input("Scrivi qui un messaggio o un comando (es. 'disegna u
                 model="llama-3.2-11b-vision-preview",
                 messages=messaggi_con_identita
             )
-                )
                 testo_risposta = risposta.choices[0].message.content
                 st.write(testo_risposta)
                 st.session_state.messages.append({"role": "assistant", "type": "text", "content": testo_risposta})
