@@ -4,7 +4,7 @@ import base64
 from pptx import Presentation
 import io
 
-# --- 1. CONFIGURAZIONE PAGINA ---
+# --- 1. CONFIGURAZIONE PAGINA (Look Dark & Clean) ---
 st.set_page_config(page_title="Ernello MAX", page_icon="⚡", layout="wide")
 
 st.markdown("""
@@ -32,11 +32,11 @@ def crea_presentazione(titolo, contenuto):
 # --- 3. CONFIGURAZIONE API ---
 try:
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-except Exception as e:
-    st.error(f"⚠️ Errore API: {e}")
+except:
+    st.error("⚠️ Chiave API mancante!")
     st.stop()
 
-# --- 4. BARRA LATERALE ---
+# --- 4. BARRA LATERALE (Multimediale) ---
 with st.sidebar:
     st.title("⚡ Ernello MAX")
     modello = st.selectbox("Modello:", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"])
@@ -45,49 +45,49 @@ with st.sidebar:
     system_prompt = st.text_area("Stato d'animo AI:", "Tu sei Ernello, un assistente ultra-tecnologico, preciso e amichevole.")
     
     st.divider()
+    st.subheader("📷 Acquisizione")
+    tipo_input = st.radio("Scegli input:", ["Testo", "Scatta Foto", "Carica Video"])
+    
+    if tipo_input == "Scatta Foto":
+        foto = st.camera_input("Scatta")
+    elif tipo_input == "Carica Video":
+        video = st.file_uploader("Carica Video", type=["mp4", "mov", "avi"])
+
+    st.divider()
     st.subheader("📊 Genera Presentazione")
     tema_ppt = st.text_input("Di cosa deve parlare la PPT?")
     if st.button("Genera .pptx"):
         dati_ppt = crea_presentazione(tema_ppt, f"Presentazione generata da Ernello su: {tema_ppt}")
         st.download_button("Scarica PPTX", dati_ppt, file_name="presentazione.pptx")
 
-# --- 5. GESTIONE STATO CHAT ---
-if "all_chats" not in st.session_state:
-    st.session_state.all_chats = {"Chat 1": []}
+# --- 5. MOTORE CHAT ---
+if "all_chats" not in st.session_state: st.session_state.all_chats = {"Chat 1": []}
+st.session_state.active_chat = st.radio("Le tue chat:", list(st.session_state.all_chats.keys()))
 
-st.session_state.active_chat = st.sidebar.radio("Le tue chat:", list(st.session_state.all_chats.keys()))
-
-# --- 6. MOTORE CHAT ---
 messages = st.session_state.all_chats[st.session_state.active_chat]
 
 for m in messages:
-    with st.chat_message(m["role"]):
-        st.markdown(m["content"])
+    with st.chat_message(m["role"]): st.markdown(m["content"])
 
-# Gestione input vocale e testo
-audio_utente = st.audio_input("🎙️")
+# Gestione input
+audio_utente = st.audio_input("🎙️") # Messaggio vocale
 testo_inviato = st.chat_input("Scrivi...")
 
 if audio_utente:
-    with st.spinner("Trascrizione in corso..."):
-        trascrizione = client.audio.transcriptions.create(
-            file=("audio.wav", audio_utente.read()), 
-            model="whisper-large-v3", 
-            language="it"
-        )
+    with st.spinner("Ascolto..."):
+        trascrizione = client.audio.transcriptions.create(file=("audio.wav", audio_utente.read()), model="whisper-large-v3", language="it")
         testo_inviato = trascrizione.text
 
 if testo_inviato:
     st.session_state.all_chats[st.session_state.active_chat].append({"role": "user", "content": testo_inviato})
-    with st.chat_message("user"):
-        st.markdown(testo_inviato)
+    with st.chat_message("user"): st.markdown(testo_inviato)
     
     with st.chat_message("assistant"):
         placeholder = st.empty()
         full_response = ""
         stream = client.chat.completions.create(
             model=modello,
-            messages=[{"role": "system", "content": system_prompt}] + messages,
+            messages=[{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in messages],
             stream=True
         )
         for chunk in stream:
