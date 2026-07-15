@@ -124,9 +124,13 @@ if prompt := st.chat_input("Scrivi qui un messaggio o un comando (es. 'disegna u
         elif base64_foto is not None:
             st.write("👀 Sto guardando la foto...")
             try:
-                risposta = client.chat.completions.create(
-                    model="llama-3.2-11b-vision-preview",
-                    messages=api_messages
+            # Creiamo la copia con il nome Ernello
+            messaggi_con_identita = [{"role": "system", "content": "Tu sei un assistente IA super intelligente. Il tuo nome è Ernello. Rispondi sempre in italiano in modo amichevole e personalizzato."}] + api_messages
+            
+            risposta = client.chat.completions.create(
+                model="llama-3.2-11b-vision-preview",
+                messages=messaggi_con_identita
+            )
                 )
                 testo_risposta = risposta.choices[0].message.content
                 st.write(testo_risposta)
