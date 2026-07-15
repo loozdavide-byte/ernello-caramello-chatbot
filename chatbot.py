@@ -96,4 +96,3 @@ if testo_inviato:
                 placeholder.markdown(full_response + "▌")
         placeholder.markdown(full_response)
         st.session_state.all_chats[st.session_state.active_chat].append({"role": "assistant", "content": full_response})
-    
