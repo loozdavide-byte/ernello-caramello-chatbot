@@ -141,9 +141,9 @@ if prompt := st.chat_input("Scrivi qui un messaggio o un comando (es. 'disegna u
         else:
             st.write("Pensando...")
             try:
-messaggi_con_identita = [{"role": "system", "content": "Tu sei un assistente IA super intelligente. Il tuo nome è Ernello. Rispondi sempre in italiano in modo amichevole e personalizzato."}] + api_messages
+    messaggi_con_identita = [{"role": "system", "content": "Tu sei un assistente IA super intelligente. Il tuo nome è Ernello. Rispondi sempre in italiano in modo amichevole e personalizzato."}] + api_messages
 
-risposta = client.chat.completions.create(
+    risposta = client.chat.completions.create(
     model="llama-3.2-11b-vision-preview",
     messages=messaggi_con_identita
 )
