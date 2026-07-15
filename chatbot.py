@@ -55,7 +55,8 @@ if prompt := st.chat_input("Scrivi a Ernello..."):
     with st.chat_message("user"): st.write(prompt)
 
     # Preparazione per l'IA
-    api_messages = sistema_ernello + [{"role": "user", "content": m["content"]} for m in messages if m["type"] == "text"]
+    # QUESTA È LA RIGA CORRETTA DA INCOLLARE:
+    api_messages = sistema_ernello + [{"role": m["role"], "content": m["content"]} for m in messages if m["type"] == "text"]
     
     with st.chat_message("assistant"):
         st.write("Pensando...")
