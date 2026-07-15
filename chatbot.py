@@ -124,9 +124,7 @@ if prompt := st.chat_input("Scrivi qui un messaggio o un comando (es. 'disegna u
         elif base64_foto is not None:
             st.write("👀 Sto guardando la foto...")
             try:
-            # Creiamo la copia con il nome Ernello
             messaggi_con_identita = [{"role": "system", "content": "Tu sei un assistente IA super intelligente. Il tuo nome è Ernello. Rispondi sempre in italiano in modo amichevole e personalizzato."}] + api_messages
-            
             risposta = client.chat.completions.create(
                 model="llama-3.2-11b-vision-preview",
                 messages=messaggi_con_identita
@@ -141,12 +139,11 @@ if prompt := st.chat_input("Scrivi qui un messaggio o un comando (es. 'disegna u
         else:
             st.write("Pensando...")
             try:
-    messaggi_con_identita = [{"role": "system", "content": "Tu sei un assistente IA super intelligente. Il tuo nome è Ernello. Rispondi sempre in italiano in modo amichevole e personalizzato."}] + api_messages
-
-    risposta = client.chat.completions.create(
-    model="llama-3.2-11b-vision-preview",
-    messages=messaggi_con_identita
-)
+            messaggi_con_identita = [{"role": "system", "content": "Tu sei un assistente IA super intelligente. Il tuo nome è Ernello. Rispondi sempre in italiano in modo amichevole e personalizzato."}] + api_messages
+            risposta = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=messaggi_con_identita
+            )
                 testo_risposta = risposta.choices[0].message.content
                 st.write(testo_risposta)
                 st.session_state.messages.append({"role": "assistant", "type": "text", "content": testo_risposta})
