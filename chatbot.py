@@ -1,79 +1,93 @@
 import streamlit as st
 from groq import Groq
+import base64
+from pptx import Presentation
 import io
 
-# --- 1. CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="Ernello", page_icon="⚡", layout="wide")
+# --- 1. CONFIGURAZIONE PAGINA (Look Dark & Clean) ---
+st.set_page_config(page_title="Ernello MAX", page_icon="⚡", layout="wide")
 
-# --- CSS "IDENTICO A GEMINI" ---
-# Questo CSS forza l'input a stare in basso e arrotonda tutto
 st.markdown("""
 <style>
-    /* Sfondo Gemini */
-    .stApp { background-color: #131314; color: #e3e3e3; }
-    [data-testid="stSidebar"] { background-color: #0b0b0b; border-right: 1px solid #222; }
-    
-    /* Input Box Stile Gemini */
-    [data-testid="stChatInput"] { 
-        background-color: #1f1f1f !important; 
-        border-radius: 24px !important; 
-        border: 1px solid #333 !important;
-        padding: 5px !important;
-    }
-    
-    /* Pulizia messaggi */
-    .stChatMessage { background-color: transparent !important; }
-    
-    /* Sidebar */
-    .stButton>button { border-radius: 20px; background: transparent; border: 1px solid #333; }
+    .stApp { background-color: #000000; color: #e0e0e0; }
+    [data-testid="stSidebar"] { background-color: #0a0a0a; border-right: 1px solid #222; }
+    .stChatMessage { background-color: transparent !important; padding: 10px 0px; }
+    .stChatMessageContent { color: #d1d1d1; font-family: sans-serif; }
+    [data-testid="stChatInput"] { background-color: #1a1a1a; border: 1px solid #333; border-radius: 8px; }
+    .block-container { padding-top: 2rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. LOGICA API ---
+# --- 2. LOGICA GENERAZIONE PPTX ---
+def crea_presentazione(titolo, contenuto):
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[0])
+    slide.shapes.title.text = titolo
+    slide.placeholders[1].text = contenuto
+    
+    bio = io.BytesIO()
+    prs.save(bio)
+    return bio.getvalue()
+
+# --- 3. CONFIGURAZIONE API ---
 try:
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 except:
-    st.error("⚠️ Configura GROQ_API_KEY nei Secrets!")
+    st.error("⚠️ Chiave API mancante!")
     st.stop()
 
-# --- 3. SIDEBAR (Cronologia) ---
+# --- 4. BARRA LATERALE (Multimediale) ---
 with st.sidebar:
-    st.markdown("## ⚡ Ernello")
-    if st.button("➕ Nuova chat", use_container_width=True):
-        st.session_state.active_chat = f"Chat {len(st.session_state.all_chats)+1}"
-        st.session_state.all_chats[st.session_state.active_chat] = []
-        st.rerun()
+    st.title("⚡ Ernello MAX")
+    modello = st.selectbox("Modello:", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"])
     
-    st.write("---")
-    st.subheader("Recenti")
-    if "all_chats" not in st.session_state: st.session_state.all_chats = {"Chat 1": []}
+    st.subheader("🎭 Personalità")
+    system_prompt = st.text_area("Stato d'animo AI:", "Tu sei Ernello, un assistente ultra-tecnologico, preciso e amichevole.")
     
-    for chat_name in st.session_state.all_chats.keys():
-        if st.button(chat_name, use_container_width=True):
-            st.session_state.active_chat = chat_name
-            st.rerun()
-
-# --- 4. MOTORE CHAT (Input in basso come Gemini) ---
-if "active_chat" not in st.session_state: st.session_state.active_chat = "Chat 1"
-
-# Visualizzazione
-for m in st.session_state.all_chats[st.session_state.active_chat]:
-    with st.chat_message(m["role"], avatar="⚡" if m["role"] == "assistant" else None):
-        st.markdown(m["content"])
-
-# Input - st.chat_input è l'unico che rimane fissato in basso come Gemini
-if prompt := st.chat_input("Scrivi a Ernello..."):
-    # Messaggio Utente
-    st.session_state.all_chats[st.session_state.active_chat].append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.markdown(prompt)
+    st.divider()
+    st.subheader("📷 Acquisizione")
+    tipo_input = st.radio("Scegli input:", ["Testo", "Scatta Foto", "Carica Video"])
     
-    # Risposta AI
-    with st.chat_message("assistant", avatar="⚡"):
+    if tipo_input == "Scatta Foto":
+        foto = st.camera_input("Scatta")
+    elif tipo_input == "Carica Video":
+        video = st.file_uploader("Carica Video", type=["mp4", "mov", "avi"])
+
+    st.divider()
+    st.subheader("📊 Genera Presentazione")
+    tema_ppt = st.text_input("Di cosa deve parlare la PPT?")
+    if st.button("Genera .pptx"):
+        dati_ppt = crea_presentazione(tema_ppt, f"Presentazione generata da Ernello su: {tema_ppt}")
+        st.download_button("Scarica PPTX", dati_ppt, file_name="presentazione.pptx")
+
+# --- 5. MOTORE CHAT ---
+if "all_chats" not in st.session_state: st.session_state.all_chats = {"Chat 1": []}
+st.session_state.active_chat = st.radio("Le tue chat:", list(st.session_state.all_chats.keys()))
+
+messages = st.session_state.all_chats[st.session_state.active_chat]
+
+for m in messages:
+    with st.chat_message(m["role"]): st.markdown(m["content"])
+
+# Gestione input
+audio_utente = st.audio_input("🎙️") # Messaggio vocale
+testo_inviato = st.chat_input("Scrivi...")
+
+if audio_utente:
+    with st.spinner("Ascolto..."):
+        trascrizione = client.audio.transcriptions.create(file=("audio.wav", audio_utente.read()), model="whisper-large-v3", language="it")
+        testo_inviato = trascrizione.text
+
+if testo_inviato:
+    st.session_state.all_chats[st.session_state.active_chat].append({"role": "user", "content": testo_inviato})
+    with st.chat_message("user"): st.markdown(testo_inviato)
+    
+    with st.chat_message("assistant"):
         placeholder = st.empty()
         full_response = ""
         stream = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.all_chats[st.session_state.active_chat]],
+            model=modello,
+            messages=[{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in messages],
             stream=True
         )
         for chunk in stream:
