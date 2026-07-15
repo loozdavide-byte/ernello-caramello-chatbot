@@ -139,7 +139,7 @@ if prompt := st.chat_input("Scrivi qui un messaggio o un comando (es. 'disegna u
             st.write("Pensando...")
             try:
                 risposta = client.chat.completions.create(
-                    model="llama-3.3-70b-specdec",
+                   model="llama-3.3-70b-versatile",
                     messages=api_messages
                 )
                 testo_risposta = risposta.choices[0].message.content
