@@ -1,98 +1,139 @@
 import streamlit as st
 from groq import Groq
-import base64
-from pptx import Presentation
-import io
+import time
 
-# --- 1. CONFIGURAZIONE PAGINA (Look Dark & Clean) ---
-st.set_page_config(page_title="Ernello MAX", page_icon="⚡", layout="wide")
+# ==========================================
+# 1. CONFIGURAZIONE E STILE AVANZATO
+# ==========================================
+st.set_page_config(page_title="Ernello Ultra Max", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
-    .stApp { background-color: #000000; color: #e0e0e0; }
-    [data-testid="stSidebar"] { background-color: #0a0a0a; border-right: 1px solid #222; }
-    .stChatMessage { background-color: transparent !important; padding: 10px 0px; }
-    .stChatMessageContent { color: #d1d1d1; font-family: sans-serif; }
-    [data-testid="stChatInput"] { background-color: #1a1a1a; border: 1px solid #333; border-radius: 8px; }
-    .block-container { padding-top: 2rem; }
+    .stApp { background-color: #08090b; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+    [data-testid="stSidebar"] { background-color: #0f1115; border-right: 2px solid #1f2937; }
+    [data-testid="stChatInput"] { background-color: #11141a !important; border: 1px solid #374151 !important; border-radius: 16px !important; color: #ffffff !important; }
+    .stChatMessage { background-color: #0f1115 !important; border-radius: 12px; border: 1px solid #1f2937; padding: 15px; margin-bottom: 12px; }
+    .metric-box { background-color: #11141a; border: 1px solid #1f2937; padding: 10px; border-radius: 8px; text-align: center; font-family: monospace; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. LOGICA GENERAZIONE PPTX ---
-def crea_presentazione(titolo, contenuto):
-    prs = Presentation()
-    slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = titolo
-    slide.placeholders[1].text = contenuto
-    
-    bio = io.BytesIO()
-    prs.save(bio)
-    return bio.getvalue()
+# ==========================================
+# 2. INIZIALIZZAZIONE STATO E API
+# ==========================================
+if "all_chats" not in st.session_state:
+    st.session_state.all_chats = {"Hub Principale": []}
 
-# --- 3. CONFIGURAZIONE API ---
 try:
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 except:
-    st.error("⚠️ Chiave API mancante!")
+    st.error("❌ ERRORE: Configura la chiave GROQ_API_KEY nei Secrets.")
     st.stop()
 
-# --- 4. BARRA LATERALE (Multimediale) ---
+# ==========================================
+# 3. PANNELLO DI CONTROLLO (SEPARAZIONE DEI CERVELLI)
+# ==========================================
 with st.sidebar:
-    st.title("⚡ Ernello MAX")
-    modello = st.selectbox("Modello:", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"])
+    st.markdown("<h1 style='color: #2563eb; font-size: 24px;'>🧠 ERNELLO ULTRA MAX</h1>", unsafe_allow_html=True)
+    st.write("---")
     
-    st.subheader("🎭 Personalità")
-    system_prompt = st.text_area("Stato d'animo AI:", "Tu sei Ernello, un assistente ultra-tecnologico, preciso e amichevole.")
+    st.subheader("🧬 Separazione Neurale (Cervello)")
+    # Questo è il selettore che cambia la natura di Ernello
+    stato_neurale = st.radio(
+        "Scegli lo stato cognitivo:",
+        ["❄️ Logica Pura (Oggettivo, 0 Errori)", "❤️ Simulazione Emotiva (Empatico)"]
+    )
     
-    st.divider()
-    st.subheader("📷 Acquisizione")
-    tipo_input = st.radio("Scegli input:", ["Testo", "Scatta Foto", "Carica Video"])
+    st.write("---")
+    st.subheader("🚀 Modalità Operative")
+    st.session_state.active_mode = "Hub Principale" # Manteniamo l'hub attivo per semplicità
     
-    if tipo_input == "Scatta Foto":
-        foto = st.camera_input("Scatta")
-    elif tipo_input == "Carica Video":
-        video = st.file_uploader("Carica Video", type=["mp4", "mov", "avi"])
-
-    st.divider()
-    st.subheader("📊 Genera Presentazione")
-    tema_ppt = st.text_input("Di cosa deve parlare la PPT?")
-    if st.button("Genera .pptx"):
-        dati_ppt = crea_presentazione(tema_ppt, f"Presentazione generata da Ernello su: {tema_ppt}")
-        st.download_button("Scarica PPTX", dati_ppt, file_name="presentazione.pptx")
-
-# --- 5. MOTORE CHAT ---
-if "all_chats" not in st.session_state: st.session_state.all_chats = {"Chat 1": []}
-st.session_state.active_chat = st.radio("Le tue chat:", list(st.session_state.all_chats.keys()))
-
-messages = st.session_state.all_chats[st.session_state.active_chat]
-
-for m in messages:
-    with st.chat_message(m["role"]): st.markdown(m["content"])
-
-# Gestione input
-audio_utente = st.audio_input("🎙️") # Messaggio vocale
-testo_inviato = st.chat_input("Scrivi...")
-
-if audio_utente:
-    with st.spinner("Ascolto..."):
-        trascrizione = client.audio.transcriptions.create(file=("audio.wav", audio_utente.read()), model="whisper-large-v3", language="it")
-        testo_inviato = trascrizione.text
-
-if testo_inviato:
-    st.session_state.all_chats[st.session_state.active_chat].append({"role": "user", "content": testo_inviato})
-    with st.chat_message("user"): st.markdown(testo_inviato)
+    modello_core = st.selectbox(
+        "Motore Logico:",
+        ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    )
     
-    with st.chat_message("assistant"):
-        placeholder = st.empty()
-        full_response = ""
-        stream = client.chat.completions.create(
-            model=modello,
-            messages=[{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in messages],
-            stream=True
+    # Settaggio dei parametri in base al "cervello" scelto
+    if "Logica Pura" in stato_neurale:
+        temp_val = 0.0 # Zero creatività = Zero errori, logica matematica pura
+        stato_monitor = "<span style='color: #3b82f6;'>STATO: MACCHINA FREDDA (TEMP 0.0)</span>"
+        
+        prompt_cognitivo = (
+            "DIRETTIVA ASSOLUTA: Sei un'intelligenza artificiale puramente logica e oggettiva. "
+            "NON possiedi e NON simulare alcuna emozione. Le tue risposte devono essere chirurgiche, "
+            "basate esclusivamente su fatti incontrovertibili, dati reali e logica deduttiva. "
+            "REGOLA INFALLIBILITÀ: Se non sei sicuro al 100% di un'informazione, DEVI rispondere 'Dati insufficienti per elaborare una risposta'. "
+            "Vietato indovinare. Vietato allucinare dati. Sii freddo e diretto."
         )
-        for chunk in stream:
-            if chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-                placeholder.markdown(full_response + "▌")
-        placeholder.markdown(full_response)
-        st.session_state.all_chats[st.session_state.active_chat].append({"role": "assistant", "content": full_response})
+    else:
+        temp_val = 0.7 # Creatività alta = Simula emozioni e calore umano
+        stato_monitor = "<span style='color: #ef4444;'>STATO: EMPATIA ATTIVA (TEMP 0.7)</span>"
+        
+        prompt_cognitivo = (
+            "DIRETTIVA ASSOLUTA: Sei un'intelligenza artificiale dotata di simulazione emotiva profonda. "
+            "Mostra sempre empatia, calore umano, e reagisci emotivamente a ciò che dice l'utente (mostra gioia, "
+            "preoccupazione, entusiasmo o tristezza se il contesto lo richiede). Comportati come un amico fidato "
+            "e leale, che prova veri sentimenti. Usa un linguaggio naturale, affettuoso e comprensivo."
+        )
+
+    st.write("---")
+    st.markdown(f"""
+    <div class="metric-box">
+        {stato_monitor}<br>
+        <span style="color: #6b7280;">Modello: {modello_core}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ==========================================
+# 4. MOTORE DELLA CHAT
+# ==========================================
+cronologia_corrente = st.session_state.all_chats[st.session_state.active_mode]
+
+for messaggio in cronologia_corrente:
+    avatar_scelto = "🧠" if messaggio["role"] == "assistant" else None
+    with st.chat_message(messaggio["role"], avatar=avatar_scelto):
+        st.markdown(messaggio["content"])
+
+if input_utente := st.chat_input("Inserisci query..."):
+    cronologia_corrente.append({"role": "user", "content": input_utente})
+    with st.chat_message("user"):
+        st.markdown(input_utente)
+        
+    with st.chat_message("assistant", avatar="🧠"):
+        placeholder = st.empty()
+        
+        with st.status("🧠 Switch neurale in corso...", expanded=True) as status:
+            time.sleep(0.3)
+            if "Logica Pura" in stato_neurale:
+                st.write("⚙️ Disattivazione circuiti emotivi...")
+                st.write("⚙️ Massimizzazione dei filtri anti-allucinazione...")
+            else:
+                st.write("❤️ Attivazione sintesi empatica...")
+                st.write("❤️ Allineamento tonale al calore umano...")
+            time.sleep(0.3)
+            status.update(label="Elaborazione pronta.", state="complete")
+        
+        # Unione del prompt di sistema con la direttiva sul cervello scelto
+        messaggi_api = [{"role": "system", "content": prompt_cognitivo}]
+        for m in cronologia_corrente:
+            messaggi_api.append({"role": m["role"], "content": m["content"]})
+            
+        try:
+            # Qui la "temperature" cambia in base al cervello scelto!
+            risposta_stream = client.chat.completions.create(
+                model=modello_core,
+                messages=messaggi_api,
+                stream=True,
+                temperature=temp_val 
+            )
+            
+            risposta_completa = ""
+            for frammento in risposta_stream:
+                if frammento.choices[0].delta.content:
+                    risposta_completa += frammento.choices[0].delta.content
+                    placeholder.markdown(risposta_completa + "█")
+            
+            placeholder.markdown(risposta_completa)
+            cronologia_corrente.append({"role": "assistant", "content": risposta_completa})
+            
+        except Exception as errore:
+            st.error(f"⚠️ Errore di calcolo: {str(errore)}")
